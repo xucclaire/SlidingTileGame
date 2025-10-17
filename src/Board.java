@@ -114,9 +114,17 @@ public class Board {
         System.out.println(this.toString());
     }
 
-    public int[] getTiles() { return Arrays.copyOf(tiles, tiles.length); }
-    public int getRows() { return rows; }
-    public int getCols() { return cols; }
+    public int[] getTiles() {
+        return Arrays.copyOf(tiles, tiles.length);
+    }
+
+    public int getRows() {
+        return rows;
+    }
+
+    public int getCols() {
+        return cols;
+    }
 
     public static void main(String[] args) {
 
@@ -158,13 +166,38 @@ public class Board {
         }
 
         if (rows <= 0 || cols <= 0) {
-            System.err.println("Error didn't specify board size");
+            System.err.println("Error: didn't specify board size");
             return;
         }
 
         int expectedTiles = rows * cols;
-        if (tileList.size() < expectedTiles) {
-            System.err.println("Error not enough tiles provided (" + tileList.size() + " provided, need " + expectedTiles + ")");
+        if (tileList.size() != expectedTiles) {
+            System.err.println("Error: not enough tiles provided (" + tileList.size() + " provided, need " + expectedTiles + ")");
+            return;
+        }
+        //check for duplicates and tile value range
+        Set<Integer> seen = new HashSet<>();
+        for (int t : tileList) {
+            if (t < 0 || t >= expectedTiles) {
+                System.err.println("Error: Tile " + t + " out of range (0-" + (expectedTiles - 1) + ").");
+                return;
+            }
+            if (!seen.add(t)) {
+                System.err.println("Error: Duplicate tile (" + t + ").");
+                return;
+            }
+        }
+
+        //verify all required tiles exist
+        for (int v = 0; v < expectedTiles; v++) {
+            if (!seen.contains(v)) {
+                System.err.println("Error: Missing tile " + v + ".");
+                return;
+            }
+        }
+
+        if (goalAtTop && goalAtBottom) {
+            System.err.println("Error: Cannot have goal be at both top and bottom.");
             return;
         }
 
@@ -200,9 +233,9 @@ public class Board {
     private static int turnToTile(String s) {
         if (s.equals(".") || s.equals("0")) return 0;
         try {
-            int val = Integer.parseInt(s);
-            if (val < 0 || val > 15) throw new IllegalArgumentException();
-            return val;
+            int num = Integer.parseInt(s);
+            if (num < 0 || num > 15) throw new IllegalArgumentException();
+            return num;
         } catch (Exception e) {
             System.err.println("Invalid tile: " + s);
             System.exit(1);
