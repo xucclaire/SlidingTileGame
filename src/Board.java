@@ -27,6 +27,11 @@ public class Board {
     public boolean isGoal() {
         int n = rows * cols;
         for (int i = 0; i < n - 1; i++) {
+            if(goalAtTop){
+                if(tiles[i] == i){
+                    return true;
+                }
+            }
             if (tiles[i] != i + 1) return false;
         }
         if (goalAtTop) return tiles[0] == 0;
