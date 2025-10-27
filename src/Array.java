@@ -1,7 +1,7 @@
 import java.lang.Iterable;
 import java.util.Iterator;
 import java.util.Arrays;
-
+/*
 public class Array<T> implements Iterable<T> {
 
     // Very simple resizing array class that supports iteration
@@ -61,4 +61,4 @@ public class Array<T> implements Iterable<T> {
             return Array.this.items[this.current++];
         }
     }
-}
+}*/

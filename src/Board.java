@@ -1,82 +1,146 @@
 import java.util.*;
 
-public class Board {
+//todo enum position with all possible moves so that dont have to calculate every time
+//todo mr paige has class position
+//todo give index or row&col to position to look up in array to find what moves to look up
+//todo a bunch of predicates i=that check if valid i.e isValidRow
+//todo state claps that wraps around it it has the heuristics in enum w/ lambda overide
+//todo cached heuristic 
 
-    private final int rows;
-    private final int cols;
-    private final int[] tiles;
-    private final int emptyTileIndex;
+public class Board {
+    private enum Direction {
+        UP(-1, 0),
+        DOWN(1, 0),
+        LEFT(0, -1),
+        RIGHT(0, 1);
+
+        final int deltaRow;
+        final int deltaCol;
+
+        Direction(int deltaRow, int deltaCol) {
+            this.deltaRow = deltaRow;
+            this.deltaCol = deltaCol;
+        }
+
+        static Direction fromString(String s) {
+            return Direction.valueOf(s.toUpperCase());
+        }
+
+        int computeNewIndex(int currentIndex, int cols) {
+            return currentIndex + deltaRow * cols + deltaCol;
+        }
+
+        boolean isValid(int position, int rows, int cols) {
+            int r = position / cols;
+            int c = position % cols;
+            int newR = r + deltaRow;
+            int newC = c + deltaCol;
+            return newR >= 0 && newR < rows && newC >= 0 && newC < cols;
+        }
+    }
+
+    private final byte rows;
+    private final byte cols;
+    private final byte[] tiles;
+    private final byte emptyTileIndex;
     private final boolean goalAtTop; // true = empty top left, false = empty bottom right
 
+    private final String[][] movesCache;
+    private int cachedHashCode = 0;
+    private boolean hashComputed = false;
+
     public Board(int rows, int cols, int[] tiles, boolean goalAtTop) {
-        this.rows = rows;
-        this.cols = cols;
-        this.tiles = Arrays.copyOf(tiles, tiles.length);
+        if (rows > 127 || cols > 127 || tiles.length > 127) {
+            throw new IllegalArgumentException("Board dimensions too large for byte storage");
+        }
+
+        this.rows = (byte) rows;
+        this.cols = (byte) cols;
+        this.tiles = new byte[tiles.length];
         this.goalAtTop = goalAtTop;
 
-        int empty = -1;
+        byte empty = -1;
         for (int i = 0; i < tiles.length; i++) {
+            this.tiles[i] = (byte) tiles[i];
             if (tiles[i] == 0) {
-                empty = i;
-                break;
+                empty = (byte) i;
             }
         }
         this.emptyTileIndex = empty;
+
+        // Precompute valid moves for each position on THIS board
+        this.movesCache = precomputeAllMoves();
     }
 
-    public boolean isGoal() {
+    private Board(byte rows, byte cols, byte[] tiles, byte emptyTileIndex, boolean goalAtTop, String[][] movesCache) {
+        this.rows = rows;
+        this.cols = cols;
+        this.tiles = tiles;
+        this.emptyTileIndex = emptyTileIndex;
+        this.goalAtTop = goalAtTop;
+        this.movesCache = movesCache; // Reuse the same cache
+    }
+
+    private String[][] precomputeAllMoves() {
         int n = rows * cols;
-        for (int i = 0; i < n - 1; i++) {
-            if(goalAtTop){
-                if(tiles[i] == i){
-                    return true;
+        String[][] cache = new String[n][];
+
+        for (int pos = 0; pos < n; pos++) {
+            List<String> validMoves = new ArrayList<>(4);
+            for (Direction dir : Direction.values()) {
+                if (dir.isValid(pos, rows, cols)) {
+                    validMoves.add(dir.name());
                 }
             }
-            if (tiles[i] != i + 1) return false;
+            cache[pos] = validMoves.toArray(new String[0]);
         }
-        if (goalAtTop) return tiles[0] == 0;
-        else return tiles[n - 1] == 0;
+
+        return cache;
+    }
+    public boolean isGoal() {
+        int n = rows * cols;
+
+        if (goalAtTop) {
+            // Empty tile should be at position 0
+            if (tiles[0] != 0) return false;
+            for (int i = 1; i < n; i++) {
+                if (tiles[i] != i) return false;
+            }
+            return true;
+        } else {
+            // Empty tile should be at position n-1
+            if (tiles[n - 1] != 0) return false;
+            for (int i = 0; i < n - 1; i++) {
+                if (tiles[i] != i + 1) return false;
+            }
+            return true;
+        }
     }
 
-    public ArrayList<String> actions() {
-        ArrayList<String> actions = new ArrayList<>();
-        int r = emptyTileIndex / cols;
-        int c = emptyTileIndex % cols;
-
-        if (r > 0) actions.add("UP");
-        if (r < rows - 1) actions.add("DOWN");
-        if (c > 0) actions.add("LEFT");
-        if (c < cols - 1) actions.add("RIGHT");
-
-        return actions;
+    public String[] actions() {
+        return movesCache[emptyTileIndex];
     }
 
     public Board next(String action) {
-        int[] copy = Arrays.copyOf(tiles, tiles.length);
-        int r = emptyTileIndex / cols;
-        int c = emptyTileIndex % cols;
-        int newR = r, newC = c;
-
-        if (action.toUpperCase().equals("UP")) {
-            newR = r - 1;
-        } else if (action.toUpperCase().equals("DOWN")) {
-            newR = r + 1;
-        } else if (action.toUpperCase().equals("LEFT")) {
-            newC = c - 1;
-        } else if (action.toUpperCase().equals("RIGHT")) {
-            newC = c + 1;
-        } else {
+        Direction dir;
+        try {
+            dir = Direction.fromString(action);
+        } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid move: " + action);
         }
 
-        if (newR < 0 || newR >= rows || newC < 0 || newC >= cols)
+        // Validate that this move is actually valid for current position
+        if (!dir.isValid(emptyTileIndex, rows, cols)) {
             throw new IllegalArgumentException("Move is out of bounds: " + action);
+        }
 
-        int newIndex = newR * cols + newC;
+        int newIndex = dir.computeNewIndex(emptyTileIndex, cols);
+
+        byte[] copy = Arrays.copyOf(tiles, tiles.length);
         copy[emptyTileIndex] = copy[newIndex];
         copy[newIndex] = 0;
 
-        return new Board(rows, cols, copy, goalAtTop);
+        return new Board(rows, cols, copy, (byte) newIndex, goalAtTop, movesCache);
     }
 
     @Override
@@ -89,21 +153,31 @@ public class Board {
 
     @Override
     public int hashCode() {
-        return Arrays.hashCode(tiles);
+        if (!hashComputed) {
+            cachedHashCode = Arrays.hashCode(tiles);
+            hashComputed = true;
+        }
+        return cachedHashCode;
     }
 
     @Override
     public String toString() {
         String result = "";
+
         for (int r = 0; r < rows; r++) {
             // Row values
             for (int c = 0; c < cols; c++) {
                 int val = tiles[r * cols + c];
-                if (val == 0) result += "   ";
-                else result += String.format("%3d", val);
+                if (val == 0) {
+                    result += "   ";
+                } else {
+                    result += String.format("%3d", val);
+                }
                 if (c < cols - 1) result += " |";
             }
             result += "\n";
+
+            // Separator line
             if (r < rows - 1) {
                 for (int c = 0; c < cols; c++) {
                     result += "----";
@@ -120,7 +194,11 @@ public class Board {
     }
 
     public int[] getTiles() {
-        return Arrays.copyOf(tiles, tiles.length);
+        int[] intTiles = new int[tiles.length];
+        for (int i = 0; i < tiles.length; i++) {
+            intTiles[i] = tiles[i];
+        }
+        return intTiles;
     }
 
     public int getRows() {
@@ -206,6 +284,11 @@ public class Board {
             return;
         }
 
+        // default to bottom if neither specified
+        if (!goalAtTop && !goalAtBottom) {
+            goalAtBottom = true;
+        }
+
         int[] tiles = new int[expectedTiles];
         for (int i = 0; i < expectedTiles; i++) tiles[i] = tileList.get(i);
 
@@ -214,15 +297,14 @@ public class Board {
         board.display();
 
         for (String move : moves) {
-            System.out.println(move.toUpperCase() + "\n");
+            System.out.println(move + "\n");
             try {
                 board = board.next(move);
                 board.display();
             } catch (IllegalArgumentException e) {
-                System.out.println("Invalid move: " + move);
+                System.err.println(e.getMessage());
                 break;
             }
-            System.out.println();
         }
 
         if (board.isGoal()) System.out.println("Solved");
@@ -239,10 +321,12 @@ public class Board {
         if (s.equals(".") || s.equals("0")) return 0;
         try {
             int num = Integer.parseInt(s);
-            if (num < 0 || num > 15) throw new IllegalArgumentException();
+            if (num < 0 || num > 15) {
+                throw new IllegalArgumentException("Tile out of range");
+            }
             return num;
-        } catch (Exception e) {
-            System.err.println("Invalid tile: " + s);
+        } catch (NumberFormatException e) {
+            System.err.println("Error: Invalid tile value: " + s);
             System.exit(1);
             return -1;
         }

@@ -1,3 +1,4 @@
+
 public class Queue<T> {
 
     // A simple queue class implemented as a resizing array.

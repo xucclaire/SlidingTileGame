@@ -1,3 +1,5 @@
+/*
+
 public class Stack<T> {
 
     // A simple stack class implemented as a resizing array.
@@ -35,4 +37,4 @@ public class Stack<T> {
         assert !this.isEmpty();
         return this.stack.get(--this.sp);
     }
-}
+}*/

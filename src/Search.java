@@ -394,6 +394,7 @@ public class Search {
                     Node child = find(b);
                     double c = node.cost + a.cost();
 
+                    double f = c + b.heuristic();
                     if (!best.containsKey(b) || c < best.get(b)) {
                         recordImproved();
                         child.update(node, a);

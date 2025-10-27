@@ -1,6 +1,6 @@
 import java.lang.management.ThreadMXBean;
 import java.lang.management.ManagementFactory;
-
+/*
 public class Timer {
 
     private static final double NANOSECONDS_PER_SECOND = 1_000_000_000;
@@ -72,3 +72,4 @@ public class Timer {
         }
     }
 }
+*/
